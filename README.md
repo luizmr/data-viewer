@@ -8,6 +8,10 @@ Used DataGrid from MUI to load the data in the table and use pagination.
 
 In the project directory, you can run:
 
+### `npm install`
+
+Install the necessary packages to run the app.
+
 ### `npm start`
 
 Runs the app in the development mode.\
