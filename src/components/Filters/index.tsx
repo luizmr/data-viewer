@@ -10,34 +10,75 @@ import {
   FormControl,
   SelectChangeEvent,
 } from '@mui/material'
-import { DataRowType, FiltersType } from '../../types/'
-import { ENTITY_TYPES, OPERATING_STATUS } from '../../constants'
+import { FiltersType } from '../../types/'
+import { ENTITY_TYPES, OPERATING_STATUS, USER_FILTERS_KEY } from '../../constants'
+import { useDataContext } from '../../context'
+import { useLocation } from 'react-router-dom'
+import { saveFiltersToLocalStorage } from '../../utils/localStorageFunctions'
 
-interface FiltersProps {
-  onApplyFilters: (filters: FiltersType) => void
-  data: DataRowType[]
-}
+const Filters: React.FC = () => {
+  const [temporaryFilters, setTemporaryFilters] = useState<FiltersType>({})
+  const [isFiltersLoaded, setIsFiltersLoaded] = useState<boolean>(false)
+  const { filters, setFilters } = useDataContext()
+  const location = useLocation()
 
-const Filters: React.FC<FiltersProps> = ({ onApplyFilters, data }) => {
-  const [filters, setFilters] = useState<FiltersType>({})
+  useEffect(() => {
+    if (!isFiltersLoaded) {
+      const queryParams = new URLSearchParams(location.search)
+      const parsedFilters: Partial<Record<string, any>> = { ...filters }
+
+      queryParams.forEach((value, key) => {
+        if (
+          key in
+          {
+            created_dt: '',
+            data_source_modified_dt: '',
+            entity_type: '',
+            operating_status: '',
+            legal_name: '',
+            dba_name: '',
+            physical_address: '',
+            phone: '',
+            usdot_number: 0,
+            mc_mx_ff_number: '',
+            power_units: 0,
+            out_of_service_date: '',
+          }
+        ) {
+          if (key === 'usdot_number' || key === 'power_units') {
+            parsedFilters[key] = Number(value) as FiltersType[keyof FiltersType]
+          } else {
+            parsedFilters[key] = value as FiltersType[keyof FiltersType]
+          }
+        }
+      })
+
+      setTemporaryFilters(parsedFilters as FiltersType)
+      setFilters(parsedFilters as FiltersType)
+      saveFiltersToLocalStorage(parsedFilters, USER_FILTERS_KEY)
+      setIsFiltersLoaded(true)
+    }
+  }, [location.search, isFiltersLoaded, setFilters])
 
   const handleChange =
     (field: keyof FiltersType) =>
     (event: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
-      setFilters({ ...filters, [field]: event.target.value as string })
+      setTemporaryFilters({ ...temporaryFilters, [field]: event.target.value as string })
     }
 
   const handleSelectChange = (field: keyof FiltersType) => (event: SelectChangeEvent) => {
-    setFilters({ ...filters, [field]: event.target.value as string })
+    setTemporaryFilters({ ...temporaryFilters, [field]: event.target.value as string })
   }
 
   const handleApplyFilters = () => {
-    onApplyFilters(filters)
+    setFilters(temporaryFilters)
+    saveFiltersToLocalStorage(temporaryFilters, USER_FILTERS_KEY)
   }
 
   const handleRemoveFilters = () => {
+    setTemporaryFilters({})
     setFilters({})
-    onApplyFilters({})
+    saveFiltersToLocalStorage({}, USER_FILTERS_KEY)
   }
 
   const {
@@ -53,11 +94,7 @@ const Filters: React.FC<FiltersProps> = ({ onApplyFilters, data }) => {
     mc_mx_ff_number = '',
     power_units = '',
     out_of_service_date = '',
-  } = filters
-
-  useEffect(() => {
-    data.length === 0 && handleRemoveFilters()
-  }, [data])
+  } = temporaryFilters
 
   return (
     <Grid container spacing={2}>
@@ -180,14 +217,14 @@ const Filters: React.FC<FiltersProps> = ({ onApplyFilters, data }) => {
       </Grid>
       <Grid item xs={12}>
         <Box display="flex" justifyContent="space-between" marginTop={2}>
-          <Button variant="contained" disabled={data.length === 0} onClick={handleApplyFilters}>
+          <Button variant="contained" onClick={handleApplyFilters}>
             Apply Filters
           </Button>
 
           <Button
             variant="outlined"
             color="error"
-            disabled={data.length === 0 || (Object.keys(filters).length === 0 && data.length !== 0)}
+            disabled={Object.keys(temporaryFilters).length === 0}
             onClick={handleRemoveFilters}
           >
             Clear Filters
